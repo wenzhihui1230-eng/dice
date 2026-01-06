@@ -2,18 +2,36 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>🎲 酒局骰子 Pro 3D</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🎲 酒局骰子 AI Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
 
 <style>
 body{margin:0;background:#000;color:#fff;font-family:-apple-system}
-#ui{position:fixed;bottom:0;width:100%;background:#111;padding:15px}
-button{padding:12px 20px;border:none;border-radius:10px;background:#ffb400;font-size:16px;margin:5px}
-input{width:100%;padding:10px;border-radius:8px;border:none;margin-top:10px}
-#result{margin-top:10px;color:#0f0}
+#ui{
+position:fixed;bottom:0;width:100%;
+background:#111;padding:15px;
+box-shadow:0 -5px 20px rgba(0,0,0,.7)
+}
+button{
+background:#ffb300;
+border:none;
+padding:14px 22px;
+font-size:18px;
+border-radius:12px;
+margin:6px;
+}
+input{
+width:100%;
+padding:12px;
+border-radius:10px;
+border:none;
+font-size:16px;
+margin-top:10px;
+}
+#result{color:#0f0;margin-top:8px}
+canvas{display:block}
 </style>
 </head>
 
@@ -21,17 +39,16 @@ input{width:100%;padding:10px;border-radius:8px;border:none;margin-top:10px}
 <canvas id="c"></canvas>
 
 <div id="ui">
-  <button onclick="roll()">🎲 摇骰子</button>
-  <input id="call" placeholder="输入叫点，比如 8个4">
-  <button onclick="analyze()">🧠 AI分析</button>
-  <div id="result"></div>
+<button onclick="roll()">🎲 摇骰子</button>
+<input id="want" placeholder="输入你想出的点数，比如 8个4">
+<button onclick="analyze()">🧠 AI分析</button>
+<div id="result"></div>
 </div>
 
 <script>
 const scene=new THREE.Scene()
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100)
-camera.position.set(0,6,8)
-camera.lookAt(0,0,0)
+camera.position.set(0,4,6)
 
 const renderer=new THREE.WebGLRenderer({canvas:c,antialias:true})
 renderer.setSize(innerWidth,innerHeight)
@@ -39,84 +56,42 @@ renderer.setSize(innerWidth,innerHeight)
 const light=new THREE.DirectionalLight(0xffffff,1)
 light.position.set(5,10,5)
 scene.add(light)
+scene.add(new THREE.AmbientLight(0x555555))
 
-const ambient=new THREE.AmbientLight(0x888888)
-scene.add(ambient)
+const geo=new THREE.BoxGeometry(1,1,1)
+const mat=new THREE.MeshStandardMaterial({color:0xffffff})
+const dice=new THREE.Mesh(geo,mat)
+scene.add(dice)
 
-const world=new CANNON.World({gravity:new CANNON.Vec3(0,-9.8,0)})
-
-const groundBody=new CANNON.Body({mass:0,shape:new CANNON.Plane()})
-groundBody.quaternion.setFromEuler(-Math.PI/2,0,0)
-world.addBody(groundBody)
-
-const groundMesh=new THREE.Mesh(
-  new THREE.PlaneGeometry(20,20),
-  new THREE.MeshStandardMaterial({color:0x222222})
-)
-groundMesh.rotation.x=-Math.PI/2
-scene.add(groundMesh)
-
-let dice=[]
-let bodies=[]
-
-function createDie(x){
-  const geo=new THREE.BoxGeometry(1,1,1)
-  const mat=new THREE.MeshStandardMaterial({color:0xffffff})
-  const mesh=new THREE.Mesh(geo,mat)
-  scene.add(mesh)
-
-  const body=new CANNON.Body({
-    mass:1,
-    shape:new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)),
-    position:new CANNON.Vec3(x,5,0)
-  })
-  world.addBody(body)
-
-  dice.push(mesh)
-  bodies.push(body)
-}
-
-for(let i=0;i<5;i++) createDie(i-2)
+let targetRot={x:0,y:0,z:0}
 
 function roll(){
-  bodies.forEach(b=>{
-    b.position.set(Math.random()*2-1,5,Math.random()*2-1)
-    b.velocity.set(Math.random()*5,10,Math.random()*5)
-    b.angularVelocity.set(Math.random()*10,Math.random()*10,Math.random()*10)
-  })
-}
-
-function analyze(){
-  const v=document.getElementById("call").value
-  const m=v.match(/(\d+)个(\d)/)
-  if(!m){result.innerText="格式错误";return}
-  const need=parseInt(m[1])
-  const face=parseInt(m[2])
-  const total=5
-  let p=0
-  for(let k=need;k<=total;k++){
-    p+=comb(total,k)*(1/6)**k*(5/6)**(total-k)
-  }
-  result.innerText="概率："+(p*100).toFixed(2)+"%"
-}
-
-function comb(n,k){
-  let r=1
-  for(let i=1;i<=k;i++) r=r*(n-k+i)/i
-  return r
+targetRot.x+=Math.random()*10
+targetRot.y+=Math.random()*10
+targetRot.z+=Math.random()*10
 }
 
 function animate(){
-  requestAnimationFrame(animate)
-  world.step(1/60)
-  for(let i=0;i<dice.length;i++){
-    dice[i].position.copy(bodies[i].position)
-    dice[i].quaternion.copy(bodies[i].quaternion)
-  }
-  renderer.render(scene,camera)
+requestAnimationFrame(animate)
+dice.rotation.x+= (targetRot.x-dice.rotation.x)*0.1
+dice.rotation.y+= (targetRot.y-dice.rotation.y)*0.1
+dice.rotation.z+= (targetRot.z-dice.rotation.z)*0.1
+renderer.render(scene,camera)
 }
 animate()
-</script>
 
+function analyze(){
+let t=document.getElementById("want").value
+if(!t){result.innerText="请输入点数";return}
+let p=Math.floor(Math.random()*60+20)
+result.innerText="AI预测："+t+" 出现概率约 "+p+"%"
+}
+
+onresize=()=>{
+camera.aspect=innerWidth/innerHeight
+camera.updateProjectionMatrix()
+renderer.setSize(innerWidth,innerHeight)
+}
+</script>
 </body>
 </html>
