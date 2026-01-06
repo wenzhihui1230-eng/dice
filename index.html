@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>酒局骰子助手</title>
+<style>
+body{margin:0;font-family:-apple-system;background:#f5f5f7;text-align:center}
+h1{margin:10px;font-size:22px}
+#dice{font-size:38px;margin:15px;line-height:1.4}
+button{padding:12px 18px;margin:6px;border:none;border-radius:12px;font-size:15px;background:#007aff;color:white}
+input{padding:10px;border-radius:10px;border:1px solid #ccc;font-size:16px;width:70%}
+.panel{background:white;margin:10px;padding:15px;border-radius:15px;box-shadow:0 5px 10px rgba(0,0,0,.1)}
+.hidden{display:none}
+.small{color:#666;font-size:14px}
+</style>
+</head>
+<body>
+
+<h1>🎲 酒局骰子助手 Pro</h1>
+
+<div class="panel">
+<div id="dice">🎲 1 1 1 1 1</div>
+<button onclick="roll()">摇骰子</button>
+<button onclick="toggleDice()">5骰 / 6骰</button>
+</div>
+
+<div class="panel">
+<input id="call" placeholder="如：3个6">
+<br>
+<button onclick="judge()">他人开我</button>
+<button onclick="startVoice()">🎙 语音</button>
+<div id="result"></div>
+</div>
+
+<div class="panel">
+<button onclick="toggle()">隐身模式</button>
+<div id="data" class="hidden"></div>
+</div>
+
+<div class="panel">
+<div id="stats"></div>
+</div>
+
+<script>
+let diceCount=5;
+let dice=new Array(diceCount).fill(1);
+let stat={win:0,lose:0};
+
+function roll(){
+ dice=new Array(diceCount).fill(0).map(()=>Math.floor(Math.random()*6)+1);
+ document.getElementById("dice").innerText="🎲 "+dice.join(" ");
+}
+
+function toggleDice(){
+ diceCount = diceCount==5?6:5;
+ dice=new Array(diceCount).fill(1);
+ roll();
+}
+
+function judge(){
+ let t=document.getElementById("call").value;
+ let m=t.match(/(\d+)\s*个?\s*(\d+)/);
+ if(!m)return;
+ let need=+m[1], face=+m[2];
+ let count=dice.filter(x=>x==face).length;
+ let win=count>=need;
+ if(win)stat.win++; else stat.lose++;
+ document.getElementById("result").innerText=win?"✅ 成立，你赢":"❌ 不成立，你喝";
+ updateStats();
+ document.getElementById("data").innerText="骰子："+dice.join(",")+" | "+face+"="+count;
+}
+
+function toggle(){
+ document.getElementById("data").classList.toggle("hidden");
+}
+
+function updateStats(){
+ document.getElementById("stats").innerText="你赢："+stat.win+" 次｜你喝："+stat.lose+" 次";
+}
+
+function startVoice(){
+ let rec=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+ rec.lang="zh-CN";
+ rec.onresult=e=>{
+   let t=e.results[0][0].transcript;
+   document.getElementById("call").value=t.replace("个","");
+ }
+ rec.start();
+}
+</script>
+
+</body>
+</html>
