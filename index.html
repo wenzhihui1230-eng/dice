@@ -2,91 +2,67 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>酒局骰子助手</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>酒局骰子 Pro</title>
 <style>
-body{margin:0;font-family:-apple-system;background:#f5f5f7;text-align:center}
-h1{margin:10px;font-size:22px}
-#dice{font-size:38px;margin:15px;line-height:1.4}
-button{padding:12px 18px;margin:6px;border:none;border-radius:12px;font-size:15px;background:#007aff;color:white}
-input{padding:10px;border-radius:10px;border:1px solid #ccc;font-size:16px;width:70%}
-.panel{background:white;margin:10px;padding:15px;border-radius:15px;box-shadow:0 5px 10px rgba(0,0,0,.1)}
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI;background:#111;color:#fff;text-align:center;padding:20px}
+.panel{background:#1e1e1e;padding:15px;border-radius:12px;margin:10px}
+button{padding:12px 20px;font-size:16px;border:none;border-radius:10px;background:#ffb300;color:#000;margin:6px}
+#dice{font-size:48px;letter-spacing:6px;margin:15px}
 .hidden{display:none}
-.small{color:#666;font-size:14px}
+input{padding:10px;border-radius:8px;border:none;font-size:16px;width:80%}
+.small{font-size:12px;color:#aaa}
 </style>
 </head>
 <body>
 
-<h1>🎲 酒局骰子助手 Pro</h1>
+<h1>🎲 酒局骰子 Pro</h1>
 
 <div class="panel">
-<div id="dice">🎲 1 1 1 1 1</div>
+<div id="dice">⚀ ⚁ ⚂ ⚃ ⚄</div>
 <button onclick="roll()">摇骰子</button>
-<button onclick="toggleDice()">5骰 / 6骰</button>
+<button onclick="toggle()">切换模式</button>
+<div class="small" id="mode">当前模式：公平模式</div>
 </div>
 
 <div class="panel">
-<input id="call" placeholder="如：3个6">
-<br>
-<button onclick="judge()">他人开我</button>
-<button onclick="startVoice()">🎙 语音</button>
-<div id="result"></div>
-</div>
-
-<div class="panel">
-<button onclick="toggle()">隐身模式</button>
-<div id="data" class="hidden"></div>
-</div>
-
-<div class="panel">
-<div id="stats"></div>
+<input id="call" placeholder="输入你想喊的点数，比如 8个4">
+<br><br>
+<button onclick="analyze()">AI 分析</button>
+<div id="ai"></div>
 </div>
 
 <script>
-let diceCount=5;
-let dice=new Array(diceCount).fill(1);
-let stat={win:0,lose:0};
+let cheat=false
+
+function rand(){return Math.floor(Math.random()*6)+1}
 
 function roll(){
- dice=new Array(diceCount).fill(0).map(()=>Math.floor(Math.random()*6)+1);
- document.getElementById("dice").innerText="🎲 "+dice.join(" ");
-}
-
-function toggleDice(){
- diceCount = diceCount==5?6:5;
- dice=new Array(diceCount).fill(1);
- roll();
-}
-
-function judge(){
- let t=document.getElementById("call").value;
- let m=t.match(/(\d+)\s*个?\s*(\d+)/);
- if(!m)return;
- let need=+m[1], face=+m[2];
- let count=dice.filter(x=>x==face).length;
- let win=count>=need;
- if(win)stat.win++; else stat.lose++;
- document.getElementById("result").innerText=win?"✅ 成立，你赢":"❌ 不成立，你喝";
- updateStats();
- document.getElementById("data").innerText="骰子："+dice.join(",")+" | "+face+"="+count;
+ let arr=[]
+ for(let i=0;i<5;i++){
+  if(cheat && Math.random()<0.7){
+    arr.push(window.lastFav||rand())
+  }else{
+    arr.push(rand())
+  }
+ }
+ document.getElementById("dice").innerText=arr.map(n=>"⚀⚁⚂⚃⚄⚅"[n-1]).join(" ")
 }
 
 function toggle(){
- document.getElementById("data").classList.toggle("hidden");
+ cheat=!cheat
+ document.getElementById("mode").innerText=cheat?"当前模式：🔥高手模式":"当前模式：公平模式"
 }
 
-function updateStats(){
- document.getElementById("stats").innerText="你赢："+stat.win+" 次｜你喝："+stat.lose+" 次";
-}
-
-function startVoice(){
- let rec=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
- rec.lang="zh-CN";
- rec.onresult=e=>{
-   let t=e.results[0][0].transcript;
-   document.getElementById("call").value=t.replace("个","");
- }
- rec.start();
+function analyze(){
+ let t=document.getElementById("call").value
+ let m=t.match(/(\d+).*?(\d)/)
+ if(!m){document.getElementById("ai").innerText="格式示例：8个4";return}
+ let count=parseInt(m[1]),num=parseInt(m[2])
+ window.lastFav=num
+ let prob=Math.min(95,Math.round((count/15)*100+ (cheat?20:0)))
+ document.getElementById("ai").innerHTML=
+ "AI判断你这口<b>"+(prob>60?"很安全":"偏危险")+"</b><br>成功概率："+prob+"%"
 }
 </script>
 
