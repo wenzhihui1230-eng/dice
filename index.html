@@ -2,68 +2,120 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>酒局骰子 Pro</title>
+<title>🎲 酒局骰子 Pro 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"></script>
+
 <style>
-body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI;background:#111;color:#fff;text-align:center;padding:20px}
-.panel{background:#1e1e1e;padding:15px;border-radius:12px;margin:10px}
-button{padding:12px 20px;font-size:16px;border:none;border-radius:10px;background:#ffb300;color:#000;margin:6px}
-#dice{font-size:48px;letter-spacing:6px;margin:15px}
-.hidden{display:none}
-input{padding:10px;border-radius:8px;border:none;font-size:16px;width:80%}
-.small{font-size:12px;color:#aaa}
+body{margin:0;background:#000;color:#fff;font-family:-apple-system}
+#ui{position:fixed;bottom:0;width:100%;background:#111;padding:15px}
+button{padding:12px 20px;border:none;border-radius:10px;background:#ffb400;font-size:16px;margin:5px}
+input{width:100%;padding:10px;border-radius:8px;border:none;margin-top:10px}
+#result{margin-top:10px;color:#0f0}
 </style>
 </head>
+
 <body>
+<canvas id="c"></canvas>
 
-<h1>🎲 酒局骰子 Pro</h1>
-
-<div class="panel">
-<div id="dice">⚀ ⚁ ⚂ ⚃ ⚄</div>
-<button onclick="roll()">摇骰子</button>
-<button onclick="toggle()">切换模式</button>
-<div class="small" id="mode">当前模式：公平模式</div>
-</div>
-
-<div class="panel">
-<input id="call" placeholder="输入你想喊的点数，比如 8个4">
-<br><br>
-<button onclick="analyze()">AI 分析</button>
-<div id="ai"></div>
+<div id="ui">
+  <button onclick="roll()">🎲 摇骰子</button>
+  <input id="call" placeholder="输入叫点，比如 8个4">
+  <button onclick="analyze()">🧠 AI分析</button>
+  <div id="result"></div>
 </div>
 
 <script>
-let cheat=false
+const scene=new THREE.Scene()
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,100)
+camera.position.set(0,6,8)
+camera.lookAt(0,0,0)
 
-function rand(){return Math.floor(Math.random()*6)+1}
+const renderer=new THREE.WebGLRenderer({canvas:c,antialias:true})
+renderer.setSize(innerWidth,innerHeight)
 
-function roll(){
- let arr=[]
- for(let i=0;i<5;i++){
-  if(cheat && Math.random()<0.7){
-    arr.push(window.lastFav||rand())
-  }else{
-    arr.push(rand())
-  }
- }
- document.getElementById("dice").innerText=arr.map(n=>"⚀⚁⚂⚃⚄⚅"[n-1]).join(" ")
+const light=new THREE.DirectionalLight(0xffffff,1)
+light.position.set(5,10,5)
+scene.add(light)
+
+const ambient=new THREE.AmbientLight(0x888888)
+scene.add(ambient)
+
+const world=new CANNON.World({gravity:new CANNON.Vec3(0,-9.8,0)})
+
+const groundBody=new CANNON.Body({mass:0,shape:new CANNON.Plane()})
+groundBody.quaternion.setFromEuler(-Math.PI/2,0,0)
+world.addBody(groundBody)
+
+const groundMesh=new THREE.Mesh(
+  new THREE.PlaneGeometry(20,20),
+  new THREE.MeshStandardMaterial({color:0x222222})
+)
+groundMesh.rotation.x=-Math.PI/2
+scene.add(groundMesh)
+
+let dice=[]
+let bodies=[]
+
+function createDie(x){
+  const geo=new THREE.BoxGeometry(1,1,1)
+  const mat=new THREE.MeshStandardMaterial({color:0xffffff})
+  const mesh=new THREE.Mesh(geo,mat)
+  scene.add(mesh)
+
+  const body=new CANNON.Body({
+    mass:1,
+    shape:new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)),
+    position:new CANNON.Vec3(x,5,0)
+  })
+  world.addBody(body)
+
+  dice.push(mesh)
+  bodies.push(body)
 }
 
-function toggle(){
- cheat=!cheat
- document.getElementById("mode").innerText=cheat?"当前模式：🔥高手模式":"当前模式：公平模式"
+for(let i=0;i<5;i++) createDie(i-2)
+
+function roll(){
+  bodies.forEach(b=>{
+    b.position.set(Math.random()*2-1,5,Math.random()*2-1)
+    b.velocity.set(Math.random()*5,10,Math.random()*5)
+    b.angularVelocity.set(Math.random()*10,Math.random()*10,Math.random()*10)
+  })
 }
 
 function analyze(){
- let t=document.getElementById("call").value
- let m=t.match(/(\d+).*?(\d)/)
- if(!m){document.getElementById("ai").innerText="格式示例：8个4";return}
- let count=parseInt(m[1]),num=parseInt(m[2])
- window.lastFav=num
- let prob=Math.min(95,Math.round((count/15)*100+ (cheat?20:0)))
- document.getElementById("ai").innerHTML=
- "AI判断你这口<b>"+(prob>60?"很安全":"偏危险")+"</b><br>成功概率："+prob+"%"
+  const v=document.getElementById("call").value
+  const m=v.match(/(\d+)个(\d)/)
+  if(!m){result.innerText="格式错误";return}
+  const need=parseInt(m[1])
+  const face=parseInt(m[2])
+  const total=5
+  let p=0
+  for(let k=need;k<=total;k++){
+    p+=comb(total,k)*(1/6)**k*(5/6)**(total-k)
+  }
+  result.innerText="概率："+(p*100).toFixed(2)+"%"
 }
+
+function comb(n,k){
+  let r=1
+  for(let i=1;i<=k;i++) r=r*(n-k+i)/i
+  return r
+}
+
+function animate(){
+  requestAnimationFrame(animate)
+  world.step(1/60)
+  for(let i=0;i<dice.length;i++){
+    dice[i].position.copy(bodies[i].position)
+    dice[i].quaternion.copy(bodies[i].quaternion)
+  }
+  renderer.render(scene,camera)
+}
+animate()
 </script>
 
 </body>
